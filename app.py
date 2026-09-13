@@ -89,9 +89,9 @@ with st.sidebar:
         st.rerun()
 
     modelos = {
-        "Automático (Bedrock, depois Gemini)": ("auto", ""),
+        "Automático (Bedrock)": ("auto", ""),
         "Bedrock: openai.gpt-oss-120b": ("openai-compatible", "openai.gpt-oss-120b"),
-        "Google: gemini-flash-latest": ("gemini", "gemini-flash-latest"),
+        "Bedrock Runtime: Claude": ("bedrock", ""),
     }
     modelo_selecionado = st.selectbox("Modelo para esta execução", list(modelos))
     provedor_preferido, modelo_preferido = modelos[modelo_selecionado]
@@ -188,6 +188,9 @@ if "resultado" in st.session_state and st.session_state.resultado:
                     "Sentimento": item["sentimento"],
                     "Urgência": item["urgencia"],
                     "Resumo": item["resumo"],
+                    "Páginas das políticas": ", ".join(
+                        str(pagina) for pagina in item.get("paginas_fonte", [])
+                    ) or "Não encontradas",
                 }
                 for item in dados
             ],
@@ -227,6 +230,7 @@ if "resultado" in st.session_state and st.session_state.resultado:
             "mensagem_analise",
             "motivo",
             "acao_sugerida",
+            "paginas_fonte",
         ],
     )
     writer.writeheader()
@@ -253,6 +257,7 @@ if "resultado" in st.session_state and st.session_state.resultado:
             "mensagem_analise": item["mensagem_analise"],
             "motivo": item["motivo"],
             "acao_sugerida": item["acao_sugerida"],
+            "paginas_fonte": ", ".join(str(pagina) for pagina in item.get("paginas_fonte", [])),
         })
 
     st.download_button(

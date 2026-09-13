@@ -17,7 +17,6 @@ O FinGuard recebe um CSV de reclamações e um PDF com as políticas da empresa.
 - Abas separadas para dados da reclamação, análise FinGuard e logs das chamadas;
 - Exportação dos resultados para CSV;
 - Login com usuário e senha configurados por variáveis de ambiente;
-- Fallback opcional para Google Gemini;
 
 ## Fluxo da aplicação
 
@@ -62,9 +61,9 @@ O nome do arquivo não precisa seguir um padrão. O PDF deve conter as regras us
 
 Na barra lateral, é possível selecionar:
 
-- **Automático:** tenta o endpoint OpenAI-compatible e usa o Gemini como fallback;
-- **Bedrock:** usa `openai.gpt-oss-120b` no endpoint configurado;
-- **Google:** usa `gemini-flash-latest`.
+- **Automático (Bedrock):** usa o Bedrock Runtime quando configurado;
+- **Bedrock OpenAI-compatible:** usa `openai.gpt-oss-120b` no endpoint configurado;
+- **Bedrock Runtime:** usa o modelo configurado em `AWS_BEDROCK_MODEL_ID`.
 
 O sistema registra o provedor, modelo, status, duração e detalhes de erro na aba **Logs das chamadas**. Chaves e prompts não são exibidos nos logs.
 
@@ -115,18 +114,34 @@ python -m pip install -r requirements.txt
 Crie um arquivo `.env` na raiz. Não versione esse arquivo:
 
 ```env
+AWS_REGION=us-east-1
+AWS_PROFILE=default
+AWS_BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 OPENAI_API_KEY=sua_credencial_do_endpoint
 OPENAI_MODEL=openai.gpt-oss-120b
 OPENAI_BASE_URL=https://bedrock-mantle.us-east-1.api.aws/v1
-GOOGLE_API_KEY=sua_chave_google
-GOOGLE_REQUEST_DELAY_SECONDS=25
+RAG_EMBEDDING_PROVIDER=bedrock
+RAG_EMBEDDING_MODEL=amazon.titan-embed-text-v2:0
+RAG_CHUNK_SIZE=1800
+RAG_CHUNK_OVERLAP=300
+RAG_TOP_K=5
 FINGUARD_USERNAME=seu_usuario
 FINGUARD_PASSWORD=sua_senha_forte
 ```
 
-Para usar apenas o Gemini, remova ou deixe vazio `OPENAI_BASE_URL` e `OPENAI_API_KEY`. A aplicação usará `GOOGLE_API_KEY`.
+O Bedrock Runtime usa `boto3` e a cadeia padrão de credenciais da AWS. Configure um perfil com `aws configure` ou informe `AWS_PROFILE`. O endpoint OpenAI-compatible continua disponível para `openai.gpt-oss-120b`.
 
 As credenciais devem ser revogadas e geradas novamente caso tenham sido expostas. Nunca coloque chaves reais no README, no GitHub ou em screenshots.
+
+### Recuperação das políticas (RAG)
+
+O PDF é indexado durante cada execução. O texto é dividido em chunks com referência
+de página e, para cada reclamação, os trechos mais relevantes são recuperados antes
+da chamada ao modelo. Com `RAG_EMBEDDING_PROVIDER=bedrock`, o sistema usa
+`amazon.titan-embed-text-v2:0`; se embeddings não estiverem disponíveis, usa
+recuperação lexical local. Com embeddings disponíveis, o índice FAISS é persistido em
+`data/rag_index/<hash-do-pdf>/` e reutilizado nas próximas execuções. As páginas
+recuperadas aparecem na análise e no CSV exportado.
 
 ### Executar
 
@@ -141,6 +156,8 @@ Acesse [http://localhost:8501](http://localhost:8501).
 ```bash
 docker compose up --build
 ```
+
+O volume `./data:/app/data` mantém os índices FAISS entre reinicializações do container.
 
 Acesse [http://localhost:8501](http://localhost:8501). O `docker-compose.yaml` carrega as variáveis do arquivo `.env`.
 

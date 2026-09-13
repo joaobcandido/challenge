@@ -1,6 +1,8 @@
 streamlit
 python-dotenv
 requests
+boto3
 pypdf
-google-genai
 openai
+numpy
+faiss-cpu
