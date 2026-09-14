@@ -1,7 +1,6 @@
 import csv
 import hmac
 import io
-import json
 import os
 import sys
 from pathlib import Path
@@ -13,7 +12,12 @@ BASE_DIR = Path(__file__).resolve().parent
 sys.path.append(str(BASE_DIR / "src"))
 load_dotenv(BASE_DIR / ".env")
 
-from generator import classificar_reclamacoes_csv, limpar_logs_chamadas, obter_logs_chamadas
+from generator import (
+    classificar_reclamacoes_csv,
+    limpar_logs_chamadas,
+    obter_logs_chamadas,
+    obter_modelo_embedding,
+)
 
 st.set_page_config(
     page_title="Classificador de Reclamações",
@@ -89,29 +93,33 @@ with st.sidebar:
         st.rerun()
 
     modelos = {
-        "Automático (Bedrock, depois Gemini)": ("auto", ""),
-        "Bedrock: openai.gpt-oss-120b": ("openai-compatible", "openai.gpt-oss-120b"),
-        "Google: gemini-flash-latest": ("gemini", "gemini-flash-latest"),
+        "Google: gemini-1.5-flash-latest (FAISS + Embeddings)": ("gemini", "gemini-1.5-flash-latest"),
     }
     modelo_selecionado = st.selectbox("Modelo para esta execução", list(modelos))
     provedor_preferido, modelo_preferido = modelos[modelo_selecionado]
 
+    # Exibe na barra lateral o modelo de embedding ativo
+    st.info(f"🧬 **Embedding Ativo:** `{obter_modelo_embedding()}`")
+
     csv_file = st.file_uploader("Selecione o CSV das reclamações", type=["csv"])
     pdf_file = st.file_uploader("Selecione o PDF de políticas", type=["pdf"])
+    
     quantidade_opcoes = ["Todas"]
     if csv_file is not None:
         conteudo_preview = csv_file.getvalue().decode("utf-8-sig", errors="replace")
         total_reclamacoes = max(0, len(list(csv.DictReader(io.StringIO(conteudo_preview)))))
         quantidade_opcoes.extend(str(numero) for numero in range(1, total_reclamacoes + 1))
+        
     quantidade_selecionada = st.selectbox(
         "Quantidade de reclamações",
         quantidade_opcoes,
         help="Escolha quantas linhas do CSV serão enviadas para classificação.",
     )
+    
     definicao_classificador = st.text_area(
         "Instruções da análise FinGuard",
         value=(
-            "Analise a reclamação usando as políticas do PDF. "
+            "Analise a reclamação usando as políticas do PDF recuperadas via busca semântica FAISS. "
             "Explique a decisão de forma objetiva e indique uma ação prática."
         ),
         height=120,
@@ -121,7 +129,7 @@ with st.sidebar:
         if csv_file is None or pdf_file is None:
             st.warning("Envie ambos os arquivos: CSV e PDF de políticas.")
         else:
-            with st.spinner("Lendo as políticas e classificando cada reclamação..."):
+            with st.spinner("Indexando PDF (FAISS), gerando embeddings e classificando reclamações..."):
                 limpar_logs_chamadas()
                 resultado = classificar_reclamacoes_csv(
                     csv_file,
@@ -134,10 +142,10 @@ with st.sidebar:
                     ),
                 )
                 st.session_state.resultado = resultado
-                st.success("Classificação concluída.")
+                st.success("Classificação concluída com sucesso!")
 
 st.title("📩 Classificador de Reclamações")
-st.caption("Classifica registros de reclamação com base nas políticas do PDF enviado.")
+st.caption("Classifica registros de reclamação com base nas políticas do PDF enviado utilizando RAG (FAISS + Gemini).")
 
 if "resultado" in st.session_state and st.session_state.resultado:
     dados = st.session_state.resultado
@@ -178,6 +186,7 @@ if "resultado" in st.session_state and st.session_state.resultado:
         )
 
     with aba_analise:
+        # Coluna de páginas removida desta exibição
         st.dataframe(
             [
                 {
@@ -206,6 +215,7 @@ if "resultado" in st.session_state and st.session_state.resultado:
     writer = csv.DictWriter(
         csv_buffer,
         fieldnames=[
+            "linha",
             "id",
             "data_reclamacao",
             "canal",
@@ -217,42 +227,27 @@ if "resultado" in st.session_state and st.session_state.resultado:
             "sentimento",
             "urgencia",
             "resumo",
-            "prioridade",
-            "criticidade",
-            "fraude_identificada",
-            "violacao_regulatoria",
-            "escalonar_compliance",
-            "area_responsavel",
             "status_analise",
             "mensagem_analise",
-            "motivo",
-            "acao_sugerida",
         ],
     )
     writer.writeheader()
     for item in dados:
         writer.writerow({
-            "id": item["id"],
-            "data_reclamacao": item["data_reclamacao"],
-            "canal": item["canal"],
-            "texto_reclamacao": item["texto_reclamacao"],
-            "produto": item["produto"],
-            "produto_identificado": item["produto_identificado"],
-            "status": item["status"],
-            "categoria": item["categoria"],
-            "sentimento": item["sentimento"],
-            "urgencia": item["urgencia"],
-            "resumo": item["resumo"],
-            "prioridade": item["prioridade"],
-            "criticidade": item["criticidade"],
-            "fraude_identificada": item["fraude_identificada"],
-            "violacao_regulatoria": item["violacao_regulatoria"],
-            "escalonar_compliance": item["escalonar_compliance"],
-            "area_responsavel": item["area_responsavel"],
-            "status_analise": item["status_analise"],
-            "mensagem_analise": item["mensagem_analise"],
-            "motivo": item["motivo"],
-            "acao_sugerida": item["acao_sugerida"],
+            "linha": item.get("linha", ""),
+            "id": item.get("id", ""),
+            "data_reclamacao": item.get("data_reclamacao", ""),
+            "canal": item.get("canal", ""),
+            "texto_reclamacao": item.get("texto_reclamacao", ""),
+            "produto": item.get("produto", ""),
+            "produto_identificado": item.get("produto_identificado", ""),
+            "status": item.get("status", ""),
+            "categoria": item.get("categoria", ""),
+            "sentimento": item.get("sentimento", ""),
+            "urgencia": item.get("urgencia", ""),
+            "resumo": item.get("resumo", ""),
+            "status_analise": item.get("status_analise", ""),
+            "mensagem_analise": item.get("mensagem_analise", ""),
         })
 
     st.download_button(
