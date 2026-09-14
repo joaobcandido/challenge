@@ -1,164 +1,125 @@
 # FinGuard
 
-Assistente inteligente para triagem e análise de reclamações de clientes de instituições financeiras.
+Assistente inteligente para triagem e análise de reclamações de clientes de instituições financeiras baseado em RAG (Retrieval-Augmented Generation).
 
-O FinGuard recebe um CSV de reclamações e um PDF com as políticas da empresa. A aplicação usa um modelo de linguagem para classificar cada registro, avaliar riscos e sugerir o próximo encaminhamento.
+O FinGuard processa um arquivo CSV contendo as reclamações dos clientes e um documento PDF com as políticas corporativas da instituição. A aplicação utiliza indexação semântica vetorial (FAISS + Embeddings) combinada com o Google Gemini para classificar registros com precisão, avaliar o sentimento, a urgência e gerar resumos gerenciais estruturados.
 
 ## Funcionalidades
 
-- Upload de CSV e PDF diretamente pela interface;
-- Seleção da quantidade de reclamações a processar;
-- Seleção do provedor/modelo por execução;
-- Classificação por categoria, produto, sentimento e urgência;
-- Resumo padronizado de 2 a 3 linhas para cada reclamação;
-- Identificação de indícios de fraude e violação regulatória;
-- Indicação de escalonamento para Compliance e área responsável;
-- Sugestão de ação para atendimento;
-- Abas separadas para dados da reclamação, análise FinGuard e logs das chamadas;
-- Exportação dos resultados para CSV;
-- Login com usuário e senha configurados por variáveis de ambiente;
-- Fallback opcional para Google Gemini;
+- **Autenticação Segura:** Acesso restrito via login protegido por variáveis de ambiente (`.env`).
+- **Indexação RAG Vetorial:** Processamento e busca semântica de políticas corporativas via FAISS e modelo de embedding `text-embedding-004`.
+- **Upload Direto:** Envio intuitivo de arquivos CSV e PDF através da interface web.
+- **Controle de Carga:** Seleção dinâmica da quantidade de registros do CSV a serem processados por execução.
+- **Classificação Automatizada:** Triagem estruturada por Categoria, Produto, Sentimento e Urgência.
+- **Resumo Analítico Fluido:** Geração de resumos gerenciais detalhados de 2 a 3 linhas, higienizados automaticamente contra quebras de linha indesejadas.
+- **Auditoria de Chamadas:** Aba dedicada para monitoramento de latência, status, duração e logs operacionais da API.
+- **Exportação de Dados:** Download imediato dos resultados consolidados em formato CSV.
 
 ## Fluxo da aplicação
 
-1. O usuário acessa a página de login.
-2. Seleciona o modelo, o CSV e o PDF de políticas.
-3. Define, opcionalmente, as instruções da análise FinGuard.
-4. Escolhe quantas reclamações deseja processar.
-5. A aplicação envia cada reclamação junto com as políticas para o provedor selecionado.
-6. Os resultados aparecem nas abas de dados e análise.
-7. Os detalhes completos podem ser baixados em CSV.
+1. O usuário realiza o login na tela de acesso restrito.
+2. Faz o upload do arquivo CSV de reclamações e do PDF de políticas corporativas.
+3. Define opcionalmente as instruções personalizadas para o classificador na barra lateral.
+4. Escolhe se deseja processar todas as reclamações ou um limite específico de linhas.
+5. A aplicação indexa o PDF, gera os vetores semânticos e executa a triagem via modelo de IA.
+6. Os resultados consolidados são apresentados nas abas visuais (*Dados da reclamação* e *Análise FinGuard*).
+7. O relatório completo pode ser exportado a qualquer momento via botão de download.
 
 ## Formato do CSV
 
-O CSV deve conter estas colunas:
+O CSV de entrada deve conter obrigatoriamente estas colunas base:
 
 ```text
 id,data_reclamacao,canal,texto_reclamacao,produto,status
-```
 
-Exemplo:
+Exemplo prático:
 
-```csv
+Snippet de código
 id,data_reclamacao,canal,texto_reclamacao,produto,status
 REC-2026-00001,2026-09-01,SAC,"Foi cobrado um valor duplicado no cartão.",Cartão,Em aberto
 REC-2026-00002,2026-09-02,Ouvidoria,"Meu empréstimo foi calculado com juros incorretos.",Empréstimo,Em aberto
-```
+O campo essencial para a inteligência da análise é o texto_reclamacao. Os demais dados são preservados integralmente e exibidos no painel.
 
-O campo mais importante para a análise é `texto_reclamacao`. Os demais campos são preservados e exibidos separadamente.
+PDF de políticas
+O documento de políticas serve como base de conhecimento RAG para orientar as decisões da IA, contendo diretrizes internas como:
 
-## PDF de políticas
+Prazos de atendimento e resolução;
 
-O nome do arquivo não precisa seguir um padrão. O PDF deve conter as regras usadas para orientar a análise, como:
+Regras de cobrança, cancelamento e reembolso;
 
-- Prazos de atendimento;
-- Regras de cobrança, cancelamento e reembolso;
-- Procedimentos para fraude;
-- Regras de privacidade;
-- Critérios de escalonamento para Compliance;
-- Responsabilidades das áreas internas.
+Procedimentos de segurança e conformidade;
 
-## Modelos disponíveis
+Critérios de criticidade e priorização.
 
-Na barra lateral, é possível selecionar:
+Configuração local
+Pré-requisitos
+Python 3.11 ou superior;
 
-- **Automático:** tenta o endpoint OpenAI-compatible e usa o Gemini como fallback;
-- **Bedrock:** usa `openai.gpt-oss-120b` no endpoint configurado;
-- **Google:** usa `gemini-flash-latest`.
+pip;
 
-O sistema registra o provedor, modelo, status, duração e detalhes de erro na aba **Logs das chamadas**. Chaves e prompts não são exibidos nos logs.
+Chave válida de acesso à API configurada.
 
-## Configuração local
+Instalação
+Clone o repositório e configure o ambiente virtual:
 
-### Pré-requisitos
-
-- Python 3.11 ou superior;
-- pip;
-- Uma chave válida do provedor escolhido.
-
-### Instalação
-
-```bash
-git clone https://github.com/joaobcandido/challenge.git
+Bash
+git clone [https://github.com/joaobcandido/challenge.git](https://github.com/joaobcandido/challenge.git)
 cd challenge
 python -m venv .venv
-```
-
-Ative o ambiente virtual:
+Ative o ambiente virtual conforme o seu sistema operacional:
 
 Windows PowerShell:
 
-```powershell
+PowerShell
 .venv\Scripts\Activate.ps1
-```
-
 Git Bash no Windows:
 
-```bash
+Bash
 source .venv/Scripts/activate
-```
-
 Linux/macOS:
 
-```bash
+Bash
 source .venv/bin/activate
-```
+Instale as dependências necessárias:
 
-Instale as dependências:
-
-```bash
+Bash
 python -m pip install -r requirements.txt
-```
+Variáveis de ambiente
+Crie um arquivo .env na raiz do projeto com as suas credenciais. Não versione este arquivo:
 
-### Variáveis de ambiente
-
-Crie um arquivo `.env` na raiz. Não versione esse arquivo:
-
-```env
-OPENAI_API_KEY=sua_credencial_do_endpoint
-OPENAI_MODEL=openai.gpt-oss-120b
-OPENAI_BASE_URL=https://bedrock-mantle.us-east-1.api.aws/v1
-GOOGLE_API_KEY=sua_chave_google
-GOOGLE_REQUEST_DELAY_SECONDS=25
+Snippet de código
+OPENAI_API_KEY=sua_credencial_de_api
+OPENAI_BASE_URL=[https://generativelanguage.googleapis.com/v1beta/openai/](https://generativelanguage.googleapis.com/v1beta/openai/)
+OPENAI_MODEL=gemini-1.5-flash-latest
+RAG_EMBEDDING_MODEL=text-embedding-004
+GOOGLE_REQUEST_DELAY_SECONDS=12
 FINGUARD_USERNAME=seu_usuario
 FINGUARD_PASSWORD=sua_senha_forte
-```
+Nota de segurança: Nunca exponha chaves de API reais no README, em repositórios públicos ou em capturas de tela.
 
-Para usar apenas o Gemini, remova ou deixe vazio `OPENAI_BASE_URL` e `OPENAI_API_KEY`. A aplicação usará `GOOGLE_API_KEY`.
+Executar a aplicação
+Inicie o servidor de desenvolvimento do Streamlit:
 
-As credenciais devem ser revogadas e geradas novamente caso tenham sido expostas. Nunca coloque chaves reais no README, no GitHub ou em screenshots.
-
-### Executar
-
-```bash
+Bash
 streamlit run app.py
-```
+Acesse a interface no navegador em http://localhost:8501.
 
-Acesse [http://localhost:8501](http://localhost:8501).
+Executar com Docker
+Para rodar a aplicação em um ambiente conteinerizado:
 
-## Executar com Docker
-
-```bash
+Bash
 docker compose up --build
-```
+Acesse http://localhost:8501. O arquivo docker-compose.yaml gerencia de forma integrada o carregamento das variáveis do arquivo .env.
 
-Acesse [http://localhost:8501](http://localhost:8501). O `docker-compose.yaml` carrega as variáveis do arquivo `.env`.
-
-
-## Estrutura principal
-
-```text
-app.py                    # Interface Streamlit e autenticação
-src/generator.py          # Provedores, prompts e classificação
+Estrutura principal
+Plaintext
+app.py                    # Interface Streamlit, roteamento de abas e autenticação
+src/generator.py          # Lógica RAG (FAISS), prompts, parsers e integração com a IA
 data/reclamacoes_exemplo.csv
-data/pdfs/                # PDFs de exemplo
-requirements.txt          # Dependências Python
+data/pdfs/                # Repositório para PDFs de referência
+requirements.txt          # Dependências do projeto Python
 Dockerfile
 docker-compose.yaml
-```
-
-## Validação rápida
-
-```bash
+Validação rápida de sintaxe
+Bash
 python -m py_compile app.py src/generator.py
-```
